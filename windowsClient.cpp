@@ -2,9 +2,13 @@
 #include <winsock.h>
 #include <cstring>
 #include <string>
+#include <thread>
 
-#define PORT 12000
+
 struct sockaddr_in serverAddress;
+void receiveMessagesFromServer(int clientSocket);
+
+
 
 int main(){
 
@@ -41,7 +45,7 @@ int main(){
   // initialize server address
   memset(&serverAddress, 0, sizeof(serverAddress));
   serverAddress.sin_family = AF_INET;
-  serverAddress.sin_port = htons(PORT);
+  serverAddress.sin_port = htons(12000);
   serverAddress.sin_addr.s_addr = inet_addr("192.168.1.9");
 
 
@@ -59,51 +63,34 @@ int main(){
     std::cout << "Succefully connected to server." << std::endl;
   }
 
-
-  
+  // start a thread to receive messages from the server
+  std::thread receiveThread(receiveMessagesFromServer, clientSocket);
+  receiveThread.detach();
 
 
   // sending data
 
-  
 
-  const char* message = "i hate you";
+  std::string message;
 
- nRet = send(clientSocket, message, strlen(message), 0);
+  while (true){
+    std::getline(std::cin, message);
 
- if (nRet < 0){
-    std::cerr << "Failed to send message with error: " << WSAGetLastError() << std::endl;
-    closesocket(clientSocket);
-    WSACleanup();
-    return -1;
- } 
- else {
-  std::cout << "message sent successfully" << std::endl;
- }
+    if (message == "quit"){
+      break;
+    }
+
+    nRet = (send(clientSocket, message.c_str(), message.length(), 0));
 
 
- /* char buffer[1024];
-
-  int bytesRecieved = recv(clientSocket, buffer, sizeof(buffer) - 1, 0);
-
-  if(bytesRecieved < 0){
-    std::cerr<< "Failed to received data. Error code: " << WSAGetLastError() << std::endl;
+    if (nRet == SOCKET_ERROR){
+        std::cerr << "Failed to send message with error: " << WSAGetLastError() << std::endl;
+        closesocket(clientSocket);
+        WSACleanup();
+        break;
+    } 
+    std::cout << "Enter message: " << std::endl;
   }
-  else if (bytesRecieved == 0){
-    std::cout << "the server has closed it's connection." << std::endl;
-  }
-  else {
-    buffer[bytesRecieved] = '\0';
-  }
-
- 
-  std::cout << "server says: " << buffer << std::endl;
-
-*/
-
-
-
- 
 
 
   closesocket(clientSocket);
@@ -114,4 +101,28 @@ int main(){
 
 
   return 0;
+}
+
+
+
+
+void receiveMessagesFromServer(int clientSocket){
+  char buffer[1024];
+  while(true){
+    memset(buffer, 0, sizeof(buffer));
+    int bytesReceived = recv(clientSocket, buffer, sizeof(buffer), 0);
+
+    if (bytesReceived > 0){
+      buffer[bytesReceived] = '\0';
+      std::cout << "Server: " << buffer << std::endl;
+    }
+    else if (bytesReceived == 0){
+      std::cout << "Server disconnected" << std::endl;
+      break;
+    }
+    else {
+      std::cout << "Error reading data from server" << std::endl;
+      break;
+    }
+  }
 }
