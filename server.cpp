@@ -4,10 +4,37 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #include <stdexcept>
+#include <thread>
 #define PORT 12000
 
 // server address
 struct sockaddr_in serverAddress;
+
+
+void handleClient(int clientSocket) {
+    char buffer[1024];
+    int bytesReceived;
+    
+    std::cout << "waiting for client data..." << std::endl;
+    bytesReceived = recv(clientSocket, buffer, sizeof(buffer) - 1, 0);
+
+    if (bytesReceived < 0){
+        std::cout << "client disconnected or error receiving..." << std::endl;
+    }
+    else {
+        buffer[bytesReceived] = '\0';
+    }
+
+    std::cout << "Message from client: " << buffer << std::endl;
+
+    const char* response = "Message received!";
+    send(clientSocket, response, strlen(response), 0);
+
+    memset(buffer, 0, sizeof(buffer));
+
+    // Close the connection after communication
+    close(clientSocket);
+}
 
 int main() {
   
@@ -54,93 +81,21 @@ int main() {
     }
 
     // Accept incoming connections
-
-    int clientSocket1 = accept(serverSocket, nullptr, nullptr);
-    int clientSocket2 = accept(serverSocket, nullptr, nullptr);
-
-    if (clientSocket1 < 0 || clientSocket2 < 0) {
-        std::cout << "The socket was not accepted" << std::endl;
-        close(serverSocket);
-        return -1;
-    }
-    else {
-        std::cout << "The socket was accepted" << std::endl;
-    }
-
-    // Receive the message from client 1
-
-    char buffer[1024];
-    int bytesReceived = recv(clientSocket1, buffer, sizeof(buffer), 0);
-
-    if (bytesReceived < 0) {
-        std::cout << "The message was not received." << std::endl;
-        close(clientSocket1);
-        close(clientSocket2);
-        close(serverSocket);
-        return -1;
-    }
-    else {
-        std::cout << "The message was received from client 1" << std::endl;
-    }
-
-    // Send the message to client 2
-
-    nRet = send(clientSocket2, buffer, bytesReceived, 0);
-
-    if (nRet < 0) {
-        std::cout << "The message was not sent to client 2" << std::endl;
-        close(clientSocket1);
-        close(clientSocket2);
-        close(serverSocket);
-        return -1;
-    }
-    else {
-        std::cout << "The message was sent to client 2" << std::endl;
-    }
-
-
-    // Receive the message from client 2
-
-    bytesReceived = recv(clientSocket2, buffer, sizeof(buffer), 0);
-
-    if (bytesReceived < 0) {
-        std::cout << "The message was not received." << std::endl;
-        close(clientSocket1);
-        close(clientSocket2);
-        close(serverSocket);
-        return -1;
-    }
-    else {
-        std::cout << "The message was received from client 2" << std::endl;
-    }
-
-    // Send the message to client 1
-
-    nRet = send(clientSocket1, buffer, bytesReceived, 0);
-
-    if (nRet < 0) {
-        std::cout << "The message was not sent to client 1" << std::endl;
-        close(clientSocket1);
-        close(clientSocket2);
-        close(serverSocket);
-        return -1;
-    }
-    else {
-        std::cout << "The message was sent to client 1" << std::endl;
-    }
-
     
+    while (true) {
+        int clientSocket = accept(serverSocket, nullptr, nullptr);
+        if (clientSocket < 0) {
+            std::cerr << "Failed to accept client connection" << std::endl;
+            continue; // Wait for the next connection
+        }
+        std::cout << "Client connected" << std::endl;
 
+        // Handle the client in a new thread
+        std::thread clientThread(handleClient, clientSocket);
+        clientThread.detach();  // Detach the thread so it can run independently
+    }
 
-    // close the sockets
-
-    close(clientSocket1);
-    close(clientSocket2);
+    // Close the server socket (although this won't be reached in this loop)
     close(serverSocket);
-    
-
-    return 0;
-
-
-
+    return 0;   
 }
