@@ -5,37 +5,110 @@
 #include <unistd.h>
 #include <stdexcept>
 #include <thread>
+#include <chrono>
+
 
 // server address
 struct sockaddr_in serverAddress;
+struct PlayerResults{
+    std::string player1Results;
+    std::string player2Results;
+};
+int player1Socket = -1;
+int player2Socket = -1;
 
+void validateMoves(std::string playerMove, int clientSocket);
+PlayerResults determineWiner(std::string player1, std::string player2);
+bool assignPlayerNumbers(int clientSocket);
 
-void handleClient(int clientSocket) {
+void handleGame(int clientSocket) {
     char buffer[1024];
-    
+
+    std::string player1Choice;
+    std::string player2Choice;
+    std::string choice;
+    PlayerResults results;
     // Send welcome message to client
-    const char* welcome = "Welcome to the server!\n";
+    const char* welcome = "Welcome to rock paper or scissors!\n";
     send(clientSocket, welcome, strlen(welcome), 0);
+
     
+   bool isPlayer1 = assignPlayerNumbers(clientSocket);
+
+   // Make sure both player are in game before starting
+
+    if (player1Socket == -1 || player2Socket == -1){
+        const char* waitMsg = "Waiting for opponent to connect...\n";
+        send(clientSocket, waitMsg, strlen(waitMsg), 0);
+    }
+
+    // loop to give time for clients to connect
+    while (player1Socket == -1 || player2Socket == -1){
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    }
+
+    const char* startMsg = "Both player connected. Game starting soon...\n";
+    send(clientSocket, startMsg, strlen(startMsg), 0);
+
     while (true) {
         memset(buffer, 0, sizeof(buffer));
         int bytesReceived = recv(clientSocket, buffer, sizeof(buffer), 0);
          
         if (bytesReceived > 0) {
             buffer[bytesReceived] = '\0';
-            std::cout << "Client message: " << buffer << std::endl;
+            choice = buffer;
+
+            // remove any trailing newline characters
+            if (!choice.empty() && choice.back() == '\0'){
+                choice.pop_back();
+            }
             
-            // Echo the message back to client (or send any other response)
-            std::string response = "Server received: ";
-            response += buffer;
-            send(clientSocket, response.c_str(), response.length(), 0);
-        }
-        else if (bytesReceived == 0) {
-            std::cout << "Client disconnected." << std::endl;
-            break;
+            validateMoves(choice, clientSocket);
+            
+        
+
+        if (isPlayer1){
+            player1Choice = choice;
+            const char* wait = "Move Picked. Waiting for player 2....\n";
+            send(clientSocket, wait, strlen(wait), 0);
         }
         else {
-            std::cerr << "Error reading data: " << strerror(errno) << std::endl;
+            player2Choice = choice;
+        }
+
+        if (!player1Choice.empty() && !player2Choice.empty()) {
+        results = determineWiner(player1Choice, player2Choice);
+        
+
+        // send results to both players
+        send(player1Socket, results.player1Results.c_str(), results.player1Results.length(), 0);
+        send(player2Socket, results.player2Results.c_str(), results.player2Results.length(), 0);
+
+        // reset for next round
+        player1Choice.clear();
+        player2Choice.clear();
+        }
+        continue;
+    }
+
+        if (bytesReceived == 0){
+            std::cout << "Client disconnected." << std::endl;
+            if (isPlayer1) {
+                player1Socket = -1;
+            }
+            else {
+                player2Socket = -1;
+            }
+            break;
+        }
+        else if (bytesReceived < 0){
+            std::cout << "Error reading data" << std::endl;
+            if (isPlayer1) {
+                player1Socket = -1;
+            }
+            else {
+                player2Socket = -1;
+            }
             break;
         }
     }
@@ -99,11 +172,55 @@ int main() {
         
 
         // Handle the client in a new thread
-        std::thread clientThread(handleClient, clientSocket);
+        std::thread clientThread(handleGame, clientSocket);
         clientThread.detach();  // Detach the thread so it can run independently
     }
 
-    // Close the server socket (although this won't be reached in this loop)
+    
     close(serverSocket);
     return 0;   
+}
+
+
+bool assignPlayerNumbers(int clientSocket){
+    bool isPlayer1 = false;
+    if (player1Socket == -1){
+        player1Socket = clientSocket;
+        isPlayer1 = true;
+        const char* message = "You are player 1. Choose rock, paper, or scissors\n";
+        send(clientSocket, message, strlen(message), 0);
+    }
+    else {
+        player2Socket = clientSocket;
+        const char* message = "You are player2. Choose rock, paper, or scissors\n";
+        send(clientSocket, message, strlen(message), 0);
+    }
+    return isPlayer1;
+}
+
+
+PlayerResults determineWiner(std::string player1, std::string player2){
+    std::string resultPlayer1, resultPlayer2;
+  if (player1 == player2){
+    resultPlayer1 = resultPlayer2 = "Tie.\n";
+  }
+  else if (player1 == "rock" && player2 == "scissors" || 
+           player1 == "paper" && player2 == "rock" || 
+           player1 == "scissors" && player2 == "paper"){
+            resultPlayer1 = "You win!\n"; 
+            resultPlayer2 = "You lose!\n";
+           }
+    else {
+        resultPlayer1 = "You lose!\n";
+        resultPlayer2 = "You win!\n";
+    }
+    return {resultPlayer1, resultPlayer2};
+}
+
+void validateMoves(std::string playerMove, int clientSocket){
+    if (playerMove != "rock" && playerMove != "paper"
+    && playerMove != "scissors"){
+        const char* invalidChoice = "Invalid choice, you must pick rock, paper, or scissors\n"; 
+        send(clientSocket, invalidChoice, strlen(invalidChoice), 0);
+    }
 }
