@@ -71,7 +71,9 @@ int main(){
   // choose your move (rock paper or scissors)
   std::string playerMove;
 
+  while (true) {
 
+  
   std::getline(std::cin, playerMove);
 
   // send move to the server
@@ -80,10 +82,10 @@ int main(){
 
   if (nRet == SOCKET_ERROR){
       std::cerr << "Failed to send message with error: " << WSAGetLastError() << std::endl;
-      closesocket(clientSocket);
-      WSACleanup();
+      break;
       
-  } 
+    } 
+  }
   
 
   closesocket(clientSocket);
