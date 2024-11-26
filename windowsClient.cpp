@@ -1,6 +1,7 @@
 #include <iostream>
 #include <winsock.h>
 #include <cstring>
+#include <string>
 
 #define PORT 12000
 struct sockaddr_in serverAddress;
@@ -58,32 +59,51 @@ int main(){
     std::cout << "Succefully connected to server." << std::endl;
   }
 
-  char buffer[1024];
-  int bytesRecieved = recv(clientSocket, buffer, sizeof(buffer) - 1, 0);
 
-  if (bytesRecieved == SOCKET_ERROR) {
-    std::cerr << "Failed to receive data. Error code: " << WSAGetLastError() << std::endl;
-  }
-  else if (bytesRecieved == 0){
-    std::cout << "The server has closed the connection." << std::endl;
-  }
-  else {
-    buffer[bytesRecieved] == '\0'; // append a null terminator at end of message
-  }
+  
 
 
   // sending data
 
-  const char* message = "Hello, server!";
+  
+
+  const char* message = "i hate you";
 
  nRet = send(clientSocket, message, strlen(message), 0);
 
- if (nRet == SOCKET_ERROR){
+ if (nRet < 0){
     std::cerr << "Failed to send message with error: " << WSAGetLastError() << std::endl;
     closesocket(clientSocket);
     WSACleanup();
     return -1;
  } 
+ else {
+  std::cout << "message sent successfully" << std::endl;
+ }
+
+
+ /* char buffer[1024];
+
+  int bytesRecieved = recv(clientSocket, buffer, sizeof(buffer) - 1, 0);
+
+  if(bytesRecieved < 0){
+    std::cerr<< "Failed to received data. Error code: " << WSAGetLastError() << std::endl;
+  }
+  else if (bytesRecieved == 0){
+    std::cout << "the server has closed it's connection." << std::endl;
+  }
+  else {
+    buffer[bytesRecieved] = '\0';
+  }
+
+ 
+  std::cout << "server says: " << buffer << std::endl;
+
+*/
+
+
+
+ 
 
 
   closesocket(clientSocket);
