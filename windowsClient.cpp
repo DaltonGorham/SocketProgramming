@@ -68,30 +68,23 @@ int main(){
   receiveThread.detach();
 
 
-  // sending data
+  // choose your move (rock paper or scissors)
+  std::string playerMove;
 
 
-  std::string message;
+  std::getline(std::cin, playerMove);
 
-  while (true){
-    std::getline(std::cin, message);
-
-    if (message == "quit"){
-      break;
-    }
-
-    nRet = (send(clientSocket, message.c_str(), message.length(), 0));
+  // send move to the server
+  nRet = (send(clientSocket, playerMove.c_str(), playerMove.length(), 0));
 
 
-    if (nRet == SOCKET_ERROR){
-        std::cerr << "Failed to send message with error: " << WSAGetLastError() << std::endl;
-        closesocket(clientSocket);
-        WSACleanup();
-        break;
-    } 
-    std::cout << "Enter message: " << std::endl;
-  }
-
+  if (nRet == SOCKET_ERROR){
+      std::cerr << "Failed to send message with error: " << WSAGetLastError() << std::endl;
+      closesocket(clientSocket);
+      WSACleanup();
+      
+  } 
+  
 
   closesocket(clientSocket);
   WSACleanup();
@@ -102,6 +95,8 @@ int main(){
 
   return 0;
 }
+
+
 
 
 
