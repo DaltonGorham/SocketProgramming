@@ -12,24 +12,36 @@
 
 // server address
 struct sockaddr_in serverAddress;
+
+// Struct to hold the results of the game
 struct PlayerResults{
     std::string player1Results;
     std::string player2Results;
 };
+
+// Set socket variables to negative to indicate that no player is connected
 int player1Socket = -1;
 int player2Socket = -1;
+
+// Mutex to ensure that only one player can make a choice at a time
 std::mutex choiceMutex;
+
+// Player choices
 std::string player1Choice;
 std::string player2Choice;
 
 
+// Function to determine the winner of the game
 PlayerResults determineWiner(std::string player1, std::string player2);
+
+// Function to assign player numbers
 bool assignPlayerNumbers(int clientSocket);
 
+// Function to handle the game
 void handleGame(int clientSocket);
 
 int main() {
-    
+    // Return value for socket functions to determine success or failure
     int nRet = 0;
     // Create socket
     int serverSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);   // AF_INET: IPv4, SOCK_STREAM: TCP, IPPROTO_TCP: TCP
@@ -42,12 +54,12 @@ int main() {
         std::cout << "The socket was created successfully" << std::endl;
     }
 
-    // initialize server address
-    serverAddress.sin_family = AF_INET;
-    serverAddress.sin_port = htons(12000);
-    serverAddress.sin_addr.s_addr = INADDR_ANY; // IP address of the server : the local machine
+    // Initialize server address
+    serverAddress.sin_family = AF_INET;          // IPv4
+    serverAddress.sin_port = htons(12000);       // Port number
+    serverAddress.sin_addr.s_addr = INADDR_ANY;  // IP address of the server : the local machine
 
-    // Bind the socket to the server address
+    // Bind the socket to the server address if successful return 0, otherwise return -1
     nRet = bind(serverSocket, (sockaddr*) &serverAddress, sizeof(serverAddress));
     
     if (nRet < 0) {
@@ -72,30 +84,36 @@ int main() {
         std::cout << "The socket is listening for incoming connections" << std::endl;
     }
 
-    // Accept incoming connections
+    // Infinite loop to accept incoming connections and handle each client in a new thread
     
     while (true) {
-        int clientSocket = accept(serverSocket, nullptr, nullptr);
-        if (clientSocket < 0) {
+        int clientSocket = accept(serverSocket, nullptr, nullptr); // Accept incoming connection
+        if (clientSocket < 0) { // If the connection fails, print an error message and wait for the next connection
             std::cerr << "Failed to accept client connection" << std::endl;
             continue; // Wait for the next connection
         }
         std::cout << "Client connected" << std::endl;
         
         
-        
 
-        // Handle the client in a new thread
+        // Handle the client in a new thread so that the server can handle multiple clients simultaneously
         std::thread clientThread(handleGame, clientSocket);
-        clientThread.detach();  // Detach the thread so it can run independently
+        clientThread.detach();  // Detach the thread so it can run independently without blocking the main thread
     }
 
-    
+    // Close the server socket
     close(serverSocket);
     return 0;   
 }
 
 
+/*
+
+Function to assign player numbers
+The first client to connect is assigned player 1, the second client to connect is assigned player 2 
+After assigning the player numbers, the funtion sends a welcome message to the client and returns true if the client is player 1, otherwise it returns false
+This will be used to determine which player made the choice
+*/
 bool assignPlayerNumbers(int clientSocket) {
     const char* player1Message = 
         "Welcome Player 1\n"
@@ -123,6 +141,10 @@ bool assignPlayerNumbers(int clientSocket) {
 }
 
 
+/*
+Function to determine the winner of the game
+The function takes the choices of the two players and returns a struct containing the results for each player   
+*/
 PlayerResults determineWiner(std::string player1, std::string player2){
     std::string resultPlayer1, resultPlayer2;
   if (player1 == player2){
@@ -141,6 +163,10 @@ PlayerResults determineWiner(std::string player1, std::string player2){
     return {resultPlayer1, resultPlayer2};
 }
 
+/*
+Function to handle the game
+The function takes the client socket as a parameter and handles the game logic
+*/
 void handleGame(int clientSocket) {
     char buffer[1024];
 
@@ -151,7 +177,7 @@ void handleGame(int clientSocket) {
     const char* welcome = "Welcome to rock paper or scissors!\n";
     send(clientSocket, welcome, strlen(welcome), 0);
 
-    bool isPlayer1 = assignPlayerNumbers(clientSocket);
+    bool isPlayer1 = assignPlayerNumbers(clientSocket); 
     
     // Make sure both player are in game before starting
      if (player1Socket == -1 || player2Socket == -1){
@@ -168,27 +194,26 @@ void handleGame(int clientSocket) {
     send(clientSocket, startMsg, strlen(startMsg), 0);
 
     
-   
 
 
-    
-
+    // infinite loop to handle the game
     while (true) {
-        memset(buffer, 0, sizeof(buffer));
-        int bytesReceived = recv(clientSocket, buffer, sizeof(buffer), 0);
+        memset(buffer, 0, sizeof(buffer)); // Clear the buffer
+        int bytesReceived = recv(clientSocket, buffer, sizeof(buffer), 0); // Receive data from the client
          
         if (bytesReceived > 0) {
-            buffer[bytesReceived] = '\0';
-            choice = buffer;
+            buffer[bytesReceived] = '\0'; // Null-terminate the received data
+            choice = buffer; // Convert the received data to a string
 
-            // remove any trailing newline characters
+            // remove any trailing newline characters 
             choice.erase(std::remove(choice.begin(), choice.end(), '\n'), choice.end());
             choice.erase(std::remove(choice.begin(), choice.end(), '\0'), choice.end());
             
+            // Check if the choice is valid
             if (choice != "rock" && choice != "paper" && choice != "scissors") {
                 const char* invalidChoice = "Invalid choice, you must pick rock, paper, or scissors\n"; 
                 send(clientSocket, invalidChoice, strlen(invalidChoice), 0);
-                continue; 
+                continue;  // If the choice is invalid, send an error message and wait for the next choice: unessary 
             }
 
 
@@ -239,9 +264,10 @@ void handleGame(int clientSocket) {
                 }
             }
             
-            continue;
+            continue; // unessary prob change this
         }
 
+        // If the client disconnects, reset the player socket variables and break the loop
         if (bytesReceived == 0){
             std::cout << "Client disconnected." << std::endl;
             if (isPlayer1) {
@@ -252,6 +278,7 @@ void handleGame(int clientSocket) {
             }
             break;
         }
+        // If there is an error reading data, reset the player socket variables and break the loop
         else if (bytesReceived < 0){
             std::cout << "Error reading data" << std::endl;
             if (isPlayer1) {
