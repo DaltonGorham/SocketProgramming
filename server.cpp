@@ -112,32 +112,51 @@ int main() {
 Function to assign player numbers
 The first client to connect is assigned player 1, the second client to connect is assigned player 2 
 After assigning the player numbers, the funtion sends a welcome message to the client and returns true if the client is player 1, otherwise it returns false
-This will be used to determine which player made the choice
 */
 bool assignPlayerNumbers(int clientSocket) {
     const char* player1Message = 
-        "Welcome Player 1\n"
-        "Enter your choice:\n"
-        "- rock\n"
-        "- paper\n"
-        "- scissors\n\n";
+        "Welcome Player 1\n";
     
     const char* player2Message = 
-        "Welcome Player 2\n"
-        "Enter your choice:\n"
-        "- rock\n"
-        "- paper\n"
-        "- scissors\n\n";
-    
+        "Welcome Player 2\n";
+
+    // Assign player 1 if no player 1 is connected
     if (player1Socket == -1) {
         player1Socket = clientSocket;
         send(clientSocket, player1Message, strlen(player1Message), 0);
         return true;
     }
-    
+    // Assign player 2 if player 1 is already connected
     player2Socket = clientSocket;
     send(clientSocket, player2Message, strlen(player2Message), 0);
     return false;
+}
+
+void startCountdown(int clientSocket){
+    const char* SHOOT = "SHOOT!\n";
+    const char* THREE = "rock\n";
+    const char* TWO = "paper\n";
+    const char* ONE = "scissors\n";
+
+    send(clientSocket, THREE, strlen(THREE), 0);
+    std::this_thread::sleep_for(std::chrono::seconds(1));   
+    send(clientSocket, TWO, strlen(TWO), 0);
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+    send(clientSocket, ONE, strlen(ONE), 0);
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+    send(clientSocket, SHOOT, strlen(SHOOT), 0);
+}
+
+/*
+Function to send the choice message to the client
+*/
+void getPlayerChoice(int clientSocket){
+    const char* choiceMsg = 
+     "Enter your choice:\n"
+        "- rock\n"
+        "- paper\n"
+        "- scissors\n\n";
+        send(clientSocket, choiceMsg, strlen(choiceMsg), 0);
 }
 
 
@@ -193,6 +212,8 @@ void handleGame(int clientSocket) {
     const char* startMsg = "Opponent connected. Game starting\n";
     send(clientSocket, startMsg, strlen(startMsg), 0);
 
+    // Get the player's choice
+    getPlayerChoice(clientSocket);
     
 
 
@@ -213,16 +234,16 @@ void handleGame(int clientSocket) {
             if (choice != "rock" && choice != "paper" && choice != "scissors") {
                 const char* invalidChoice = "Invalid choice, you must pick rock, paper, or scissors\n"; 
                 send(clientSocket, invalidChoice, strlen(invalidChoice), 0);
-                continue;  // If the choice is invalid, send an error message and wait for the next choice: unessary 
+                continue;   // restart the loop to get a valid choice
             }
 
 
-            // lock the choice mutex to ensure that only one player can make a choice at a time
+            // lock the choice mutex to ensure both players make their choices before calculating the results
             {
                 std::lock_guard<std::mutex> lock(choiceMutex);
                 if (isPlayer1) {
                     player1Choice = choice;
-                    const char* wait = "Move Picked. Waiting for player 2....\n";
+                    const char* wait = "Move Picked. Waiting for results....\n";
                     std::cout << "Player 1: " << player1Choice << std::endl;
                     send(clientSocket, wait, strlen(wait), 0);
                 }
@@ -235,13 +256,9 @@ void handleGame(int clientSocket) {
 
                 // Only calculate and send results when both players have made their choices
                 if (!player1Choice.empty() && !player2Choice.empty()) {
-                    // Small delay to ensure both players see their "Move Picked" messages
-                    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-                    
-                    const char* calcMsg = "Calculating results...\n";
-                    send(player1Socket, calcMsg, strlen(calcMsg), 0);
-                    send(player2Socket, calcMsg, strlen(calcMsg), 0);
-                    
+                    startCountdown(player1Socket);
+                    startCountdown(player2Socket);
+         
                     results = determineWiner(player1Choice, player2Choice);
                     
                     // send results to both players and server
@@ -264,7 +281,7 @@ void handleGame(int clientSocket) {
                 }
             }
             
-            continue; // unessary prob change this
+            
         }
 
         // If the client disconnects, reset the player socket variables and break the loop
