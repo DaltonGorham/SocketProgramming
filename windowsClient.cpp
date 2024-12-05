@@ -20,15 +20,18 @@ int main(){
 
   WSAData wsaData;
 
+  // initialize winsock with version 2.2
   int wsaResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
 
+
+  // check if the winsock was initialized succesfully
   if (wsaResult != 0){
     std::cerr << "WASStartup failed with an error" << wsaResult << std::endl;
     return -1;
   }
 
 
-
+  // initialize the return value
   int nRet = 0;
 
   // create socket
@@ -49,10 +52,11 @@ int main(){
   serverAddress.sin_addr.s_addr = inet_addr("192.168.1.9");
 
 
+  // connect to the server
   nRet = connect(clientSocket, (struct sockaddr*)& serverAddress, sizeof(serverAddress));
 
 
-  // sending connection request
+   // check if connection to the server was succesful
   if (nRet < 0 ){
     std::cerr << "Connection to the server failed with error: " << WSAGetLastError() << std::endl;
     closesocket(clientSocket);
@@ -63,7 +67,7 @@ int main(){
     std::cout << "Succefully connected to server." << std::endl;
   }
 
-  // start a thread to receive messages from the server
+  // start a thread to receive messages from the server so the client can send moves to the server without interruption
   std::thread receiveThread(receiveMessagesFromServer, clientSocket);
   receiveThread.detach();
 
@@ -71,9 +75,9 @@ int main(){
   // choose your move (rock paper or scissors)
   std::string playerMove;
 
-  while (true) {
 
-  
+  // Infinite loop to send moves to the server
+  while (true) {
   std::getline(std::cin, playerMove);
 
   // send move to the server
@@ -87,7 +91,7 @@ int main(){
     } 
   }
   
-
+  // close the socket and cleanup winsock
   closesocket(clientSocket);
   WSACleanup();
 
@@ -101,7 +105,10 @@ int main(){
 
 
 
-
+/*
+RECEIVING MESSAGES FROM SERVER:
+This function is used to receive messages from the server and print them to the client
+*/
 
 void receiveMessagesFromServer(int clientSocket){
   char buffer[1024];
