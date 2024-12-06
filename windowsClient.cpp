@@ -49,7 +49,7 @@ int main(){
   memset(&serverAddress, 0, sizeof(serverAddress));
   serverAddress.sin_family = AF_INET;
   serverAddress.sin_port = htons(12000);
-  serverAddress.sin_addr.s_addr = inet_addr("192.168.1.9");
+  serverAddress.sin_addr.s_addr = inet_addr("192.168.1.5");
 
 
   // connect to the server
