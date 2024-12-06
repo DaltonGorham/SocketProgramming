@@ -13,6 +13,11 @@
 // server address
 struct sockaddr_in serverAddress;
 
+struct Score{
+    int player1Score;
+    int player2Score;
+};
+
 // Struct to hold the results of the game
 struct PlayerResults{
     std::string player1Results;
@@ -183,6 +188,32 @@ PlayerResults determineWiner(std::string player1, std::string player2){
 }
 
 /*
+Function to keep track of the score
+*/
+
+Score keepScore(std::string player1Result, std::string player2Result){
+    int player1Score = 0;
+    int player2Score = 0;
+    if (player1Result == "You win!"){
+        player1Score++;
+    }
+    else if (player2Result == "You win!"){
+        player2Score++;
+    }    
+    else {
+        player1Score++;
+        player2Score++; 
+    }
+    return {player1Score, player2Score};
+
+}
+
+void displayScore(Score score, int clientSocket){
+    std::string scoreMsg = "Score:\nPlayer 1: " + std::to_string(score.player1Score) + "\nPlayer 2: " + std::to_string(score.player2Score);
+    send(clientSocket, scoreMsg.c_str(), scoreMsg.length(), 0);
+}
+
+/*
 Function to handle the game
 The function takes the client socket as a parameter and handles the game logic
 */
@@ -192,6 +223,7 @@ void handleGame(int clientSocket) {
  
     std::string choice;
     PlayerResults results;
+    Score score;
     // Send welcome message to clients
     const char* welcome = "Welcome to rock paper or scissors!\n";
     send(clientSocket, welcome, strlen(welcome), 0);
@@ -260,12 +292,14 @@ void handleGame(int clientSocket) {
                     startCountdown(player2Socket);
          
                     results = determineWiner(player1Choice, player2Choice);
+                    score = keepScore(results.player1Results, results.player2Results);
                     
                     // send results to both players and server
                     std::cout << "Player 1: " << results.player1Results;
                     std::cout << "Player 2: " << results.player2Results;
                     send(player1Socket, results.player1Results.c_str(), results.player1Results.length(), 0);
                     send(player2Socket, results.player2Results.c_str(), results.player2Results.length(), 0);
+                    displayScore(score, clientSocket);
 
                     // reset for next round
                     player1Choice.clear(); 
