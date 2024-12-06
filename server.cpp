@@ -15,14 +15,17 @@ struct sockaddr_in serverAddress;
 
 struct Score{
     int player1Score;
-    int player2Score;
+    int player2Score;  
 };
+
 
 // Struct to hold the results of the game
 struct PlayerResults{
     std::string player1Results;
     std::string player2Results;
 };
+
+Score globalScore = {0, 0};
 
 // Set socket variables to negative to indicate that no player is connected
 int player1Socket = -1;
@@ -167,7 +170,7 @@ void getPlayerChoice(int clientSocket){
 
 /*
 Function to determine the winner of the game
-The function takes the choices of the two players and returns a struct containing the results for each player   
+The function takes the choices of the two players and returns a struct containing the results for each player 
 */
 PlayerResults determineWiner(std::string player1, std::string player2){
     std::string resultPlayer1, resultPlayer2;
@@ -192,24 +195,20 @@ Function to keep track of the score
 */
 
 Score keepScore(std::string player1Result, std::string player2Result){
-    int player1Score = 0;
-    int player2Score = 0;
-    if (player1Result == "You win!"){
-        player1Score++;
+    
+    if (player1Result == "You win!\n"){
+        globalScore.player1Score++;
     }
-    else if (player2Result == "You win!"){
-        player2Score++;
+    else if (player2Result == "You win!\n"){
+        globalScore.player2Score++;
     }    
-    else {
-        player1Score++;
-        player2Score++; 
-    }
-    return {player1Score, player2Score};
+  
+    return globalScore;
 
 }
 
 void displayScore(Score score, int clientSocket){
-    std::string scoreMsg = "Score:\nPlayer 1: " + std::to_string(score.player1Score) + "\nPlayer 2: " + std::to_string(score.player2Score);
+    std::string scoreMsg = "Score:\nPlayer 1: " + std::to_string(score.player1Score) + "\nPlayer 2: " + std::to_string(score.player2Score) + "\n";
     send(clientSocket, scoreMsg.c_str(), scoreMsg.length(), 0);
 }
 
@@ -223,7 +222,6 @@ void handleGame(int clientSocket) {
  
     std::string choice;
     PlayerResults results;
-    Score score;
     // Send welcome message to clients
     const char* welcome = "Welcome to rock paper or scissors!\n";
     send(clientSocket, welcome, strlen(welcome), 0);
@@ -292,14 +290,15 @@ void handleGame(int clientSocket) {
                     startCountdown(player2Socket);
          
                     results = determineWiner(player1Choice, player2Choice);
-                    score = keepScore(results.player1Results, results.player2Results);
+                    globalScore = keepScore(results.player1Results, results.player2Results);
                     
                     // send results to both players and server
                     std::cout << "Player 1: " << results.player1Results;
                     std::cout << "Player 2: " << results.player2Results;
                     send(player1Socket, results.player1Results.c_str(), results.player1Results.length(), 0);
                     send(player2Socket, results.player2Results.c_str(), results.player2Results.length(), 0);
-                    displayScore(score, clientSocket);
+                    displayScore(globalScore, player1Socket);
+                    displayScore(globalScore, player2Socket);
 
                     // reset for next round
                     player1Choice.clear(); 
